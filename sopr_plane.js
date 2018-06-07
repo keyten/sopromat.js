@@ -1,76 +1,81 @@
 const sylv = require('sylvester');
 const utils = require('./utils');
 const sopr = {
-	stiffnessMatrix: ({l, E, G, Jk, Ju}) => {
+	stiffnessMatrix: ({l, E, A, J}) => {
 		var l2 = l * l,
 			l3 = l * l * l,
-			GJk = G * Jk,
-			EJu = E * Ju;
-		return $M([[
-			GJk * l2, 0, 0, -GJk * l2, 0, 0
-		], [
-			0, 12 * EJu, 6 * EJu * l, 0, -12 * EJu, 6 * EJu * l
-		], [
-			0, 6 * EJu * l, 4 * EJu * l2, 0, -6 * EJu * l, 2 * EJu * l2
-		], [
-			-GJk * l2, 0, 0, GJk * l2, 0, 0
-		], [
-			0, -12 * EJu, -6 * EJu * l, 0, 12 * EJu, -6 * EJu * l
-		], [
-			0, 6 * EJu * l, 2 * EJu * l2, 0, -6 * EJu * l, 4 * EJu * l2
-		]]).multiply(1 / l3)
+			Al2 = A * l2,
+			Jl = J * l,
+			Jl2 = J * l2;
+		return $M([
+			[
+				Al2, 0, 0, -Al2, 0, 0
+			],
+			[
+				0, 12 * J, 6 * Jl, 0, -12 * J, 6 * Jl
+			],
+			[
+				0, 6 * Jl, 4 * Jl2, 0, -6 * Jl, 2 * Jl2
+			], [
+				-Al2, 0, 0, Al2, 0, 0
+			], [
+				0, -12 * J, -6 * Jl, 0, 12 * J, -6 * Jl
+			], [
+				0, 6 * Jl, 2 * Jl2, 0, -6 * Jl, 4 * Jl2
+			]
+		]).multiply(E / l3)
 	},
 
 	angleMatrix: (phi) => $M([
 		[
 			Math.cos(phi),
+			Math.sin(phi),
+			0,
+			0,
+			0,
+			0
+		], [
+			-Math.sin(phi),
+			Math.cos(phi),
+			0,
+			0,
+			0,
+			0
+		], [
+			0,
+			0,
+			1,
+			0,
+			0,
+			0
+		], [
+			0,
+			0,
+			0,
+			Math.cos(phi),
+			Math.sin(phi),
+			0
+		], [
+			0,
+			0,
 			0,
 			-Math.sin(phi),
-			0,
-			0,
-			0
-		], [
-			0,
-			1,
-			0,
-			0,
-			0,
-			0
-		], [
-			Math.sin(phi),
-			0,
 			Math.cos(phi),
-			0,
-			0,
 			0
 		], [
 			0,
 			0,
 			0,
-			Math.cos(phi),
-			0,
-			-Math.sin(phi)
-		], [
 			0,
 			0,
-			0,
-			0,
-			1,
-			0
-		], [
-			0,
-			0,
-			0,
-			Math.sin(phi),
-			0,
-			Math.cos(phi)
+			1
 		]
 	]),
 
-	stiffnessRotateMatrix : ({l, E, G, Jk, Ju, phi}) => {
+	stiffnessRotateMatrix : ({l, E, A, J, phi}) => {
 		return utils.multiplyChain([
 			sopr.angleMatrix(phi),
-			sopr.stiffnessMatrix({l, E, G, Jk, Ju}),
+			sopr.stiffnessMatrix({l, E, A, J}),
 			sopr.angleMatrix(phi).inv()
 		]);
 	},
@@ -93,43 +98,6 @@ const sopr = {
 		function getAssembleDimensionByCount(count){
 			return 3 * (count + 1);
 		}
-	},
-
-	construct : (vertices, edges) => {
-		// считаем длины, углы, матрицы
-		edges.forEach((edge, i) => {
-			var start = vertices[edge.start];
-			var end = vertices[edge.end];
-
-			edge.len = Math.sqrt(Math.pow(end[0] - start[0], 2) + Math.pow(end[1] - start[1], 2));
-			if(edge.len === 0){
-				throw `Element ${i} has length 0!`;
-			}
-
-			edge.alpha = Math.atan2(end[1] - start[1], end[0] - start[0]);// / Math.PI * 180;
-
-			edge.matrix = sopr.stiffnessRotateMatrix({
-				l: edge.len,
-				E: edge.E,
-				G: edge.G,
-				Jk: edge.Jk,
-				Ju: edge.Ju,
-				phi: edge.alpha
-			});
-		});
-
-		var vertexMatrixSize = 3,
-			matrix = utils.blockZeroMatrix(vertexMatrixSize, vertices.length);
-
-		edges.forEach(edge => {
-			var [K11, K12, K21, K22] = utils.divideMatrix(edge.matrix);
-			matrix[edge.start][edge.start] = matrix[edge.start][edge.start].add(K11);
-			matrix[edge.start][edge.end] = matrix[edge.start][edge.end].add(K12);
-			matrix[edge.end][edge.start] = matrix[edge.end][edge.start].add(K21);
-			matrix[edge.end][edge.end] = matrix[edge.end][edge.end].add(K22);
-		});
-
-		return $M(utils.blockToMatrix(matrix));
 	},
 
 	borders : (assemble, border) => {
