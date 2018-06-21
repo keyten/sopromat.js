@@ -84,6 +84,168 @@ const utils = {
 		return [K11, K12, K21, K22];
 	},
 
+	// при удалении одной строки индексы остальных смещаются
+	// эта функция умеет удалять их аккуратно и правильно
+	removeMatrixRows : function(matrix, rows){
+		var els = matrix.elements.map(n => n.slice());
+		for(let i = 0; i < rows.length; i++){
+			els[rows[i]].toDel = true;
+		}
+
+		let flag = true,
+			// флаг против случайного ухода в бесконечный цикл
+			maxTimes = els.length * 2,
+			i = 0;
+		while(flag && i++ < maxTimes){
+			flag = false;
+			for(let i = 0; i < els.length; i++){
+				if(els[i].toDel){
+					flag = true;
+					els.splice(i, 1);
+					break;
+				}
+			}
+		}
+		if(i >= maxTimes){
+			throw "Бесконечный цикл";
+		}
+
+		return $M(els);
+	},
+
+	removeMatrixCols : function(matrix, cols){
+		var els = matrix.elements.map(n => n.slice());
+		var toDelOb = {};
+
+		for(let i = 0; i < cols.length; i++){
+			els.forEach(row => {
+				row[cols[i]] = toDelOb;
+			});
+		}
+
+		let flag = true,
+			// флаг против случайного ухода в бесконечный цикл
+			maxTimes = els.length * els[0].length * 2,
+			i = 0;
+		while(flag && i++ < maxTimes){
+			flag = false;
+			outer: for(let i = 0; i < els.length; i++){
+				for(let j = 0; j < els.length; j++){
+					if(els[i][j] === toDelOb){
+						flag = true;
+						els[i].splice(j, 1);
+						break outer;
+					}
+				}
+			}
+		}
+		if(i >= maxTimes){
+			throw "Бесконечный цикл";
+		}
+
+		return $M(els);
+	},
+
+	removeVectorElem : function(vector, indexes){
+		return $V(utils.removeArrayElem(vector.elements.slice(), indexes));
+	},
+
+	removeArrayElem : function(els, indexes){
+		var els = els.slice();
+		var toDelOb = {};
+
+		for(let i = 0; i < indexes.length; i++){
+			els[indexes[i]] = toDelOb;
+		}
+
+		let flag = true,
+			// флаг против случайного ухода в бесконечный цикл
+			maxTimes = els.length * 2,
+			i = 0;
+		while(flag && i++ < maxTimes){
+			flag = false;
+			for(let i = 0; i < els.length; i++){
+				if(els[i] === toDelOb){
+					flag = true;
+					els.splice(i, 1);
+					break;
+				}
+			}
+		}
+
+		if(i >= maxTimes){
+			throw "Бесконечный цикл";
+		}
+
+		return els;
+	},
+
+	matrixToString : function(matrix){
+		var len = 0;
+		for(let i = 0; i < matrix.elements.length; i++){
+			for(let j = 0; j < matrix.elements[i].length; j++){
+				if((matrix.elements[i][j] + '').length > len){
+					len = (matrix.elements[i][j] + '').length;
+				}
+			}
+		}
+		len++;
+
+		var str = [];
+		for(let i = 0; i < matrix.elements.length; i++){
+			str.push('[' + matrix.elements[i].map(n => {
+				if(n >= 0){;
+					n = ' ' + n;
+				}
+				while((n + '').length < len){
+					n = n + ' ';
+				}
+				return n;
+			}).join('   ') + ']');
+		}
+
+		return str.join('\n');
+	},
+
+	vectorToString : function(vector){
+		var len = 0;
+		for(let i = 0; i < vector.elements.length; i++){
+			if((vector.elements[i] + '').length > len){
+				len = (vector.elements[i] + '').length;
+			}
+		}
+		len++;
+
+		var str = [], n;
+		for(let i = 0; i < vector.elements.length; i++){
+			n = vector.elements[i];
+			if(n >= 0){;
+				n = ' ' + n;
+			}
+			while((n + '').length < len){
+				n = n + ' ';
+			}
+
+			str.push('[' + n + ' ]');
+		}
+
+		return str.join('\n');
+	},
+
+	vectorsToString : function(vectors){
+		vectors = vectors.map(utils.vectorToString);
+		let result = [];
+		vectors.forEach((vec) => {
+			vec.split('\n').forEach((row, i) => {
+				if(!result[i]){
+					result[i] = '';
+				}
+				result[i] += row + ' ';
+			});
+		});
+		return result.join('\n');
+	},
+
 	padMatrix : function(matrix, offset){
 		var elements = matrix.elements;
 		var dimension = elements[0].length + offset.left + offset.right;
